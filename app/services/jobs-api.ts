@@ -18,6 +18,8 @@ export type ApiResponse = {
   data: Job[];
 };
 
+export type SearchFilter = "all" | "title" | "";
+
 export async function fetchJobs(page: number): Promise<ApiResponse> {
   const response = await fetch(`${API_URL}?page=${page}`);
   if (!response.ok) {
@@ -42,4 +44,39 @@ export async function fetchAllJobs(): Promise<Job[]> {
   }
 
   return allJobs;
+}
+
+export function filterJobs(
+  jobs: Job[],
+  searchTerm?: string | null,
+  filter: SearchFilter = ""
+): Job[] {
+  if (!searchTerm) {
+    return jobs;
+  }
+
+  const normalizedSearchTerm = searchTerm.toLowerCase();
+
+  return jobs.filter((job) => {
+    switch (filter) {
+      case "title":
+        return job.job_title.toLowerCase().includes(normalizedSearchTerm);
+      case "all":
+      case "":
+      default:
+        return (
+          job.job_title.toLowerCase().includes(normalizedSearchTerm) ||
+          job.description.toLowerCase().includes(normalizedSearchTerm) ||
+          job.company.toLowerCase().includes(normalizedSearchTerm)
+        );
+    }
+  });
+}
+
+export async function fetchAndFilterJobs(
+  searchTerm?: string | null,
+  filter: SearchFilter = ""
+): Promise<Job[]> {
+  const allJobs = await fetchAllJobs();
+  return filterJobs(allJobs, searchTerm, filter);
 }
