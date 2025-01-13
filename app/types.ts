@@ -4,7 +4,7 @@ export type LoaderData = {
   activeFilters: {
     term: string | null;
     filter: SearchFilter | null;
-    showOnlyFavorites: boolean;
+    showOnlyFavorites: boolean | null;
   };
 };
 

@@ -5,9 +5,10 @@ import {
   type LoaderFunctionArgs,
   type MetaFunction,
 } from "@remix-run/cloudflare";
-import { Form, useLoaderData, useSubmit } from "@remix-run/react";
+import { Form, useLoaderData, useSearchParams } from "@remix-run/react";
+import { useState } from "react";
 import { fetchAllJobs, filterJobs } from "~/services/jobs-api";
-import { Job, LoaderData, SearchFilter } from "~/types";
+import { Job, SearchFilter } from "~/types";
 
 export const meta: MetaFunction = () => {
   return [
@@ -33,7 +34,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const term = url.searchParams.get("term");
   const filter = url.searchParams.get("filter") as SearchFilter;
-  const showOnlyFavorites = url.searchParams.get("showFavorites") === "true";
 
   try {
     let cache = globalThis.__jobsCache;
@@ -49,32 +49,18 @@ export async function loader({ request }: LoaderFunctionArgs) {
       globalThis.__jobsCache = cache;
     }
 
-    let filteredJobs = filterJobs(cache.data, term, filter);
+    const filteredJobs = filterJobs(cache.data, term, filter);
 
-    if (showOnlyFavorites) {
-      filteredJobs = filteredJobs.filter((job) => cache?.favorites.has(job.id));
-    }
-
-    return json<LoaderData>({
+    return json({
       jobs: filteredJobs,
       favorites: Array.from(cache.favorites),
-      activeFilters: {
-        term,
-        filter,
-        showOnlyFavorites,
-      },
     });
   } catch (error) {
     console.error("Error loading jobs:", error);
-    return json<LoaderData>(
+    return json(
       {
         jobs: [],
         favorites: [],
-        activeFilters: {
-          term: null,
-          filter: null,
-          showOnlyFavorites: false,
-        },
       },
       { status: 500 }
     );
@@ -120,26 +106,26 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function Index() {
-  const { jobs, favorites, activeFilters } = useLoaderData<typeof loader>();
-  const submit = useSubmit();
+  const { jobs, favorites } = useLoaderData<typeof loader>();
+  const [searchParams] = useSearchParams();
+  const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
 
   const hasActiveFilters =
-    activeFilters.term ||
-    activeFilters.filter !== "all" ||
-    activeFilters.showOnlyFavorites;
+    searchParams.get("term") !== null || searchParams.get("filter") !== null;
 
   const handleClear = () => {
-    submit(
-      { term: "", filter: "all", showFavorites: "false" },
-      { method: "get" }
-    );
+    window.location.search = "";
   };
+
+  const displayedJobs = showOnlyFavorites
+    ? jobs.filter((job) => favorites.includes(job.id))
+    : jobs;
 
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-3xl font-bold mb-6">Job Opportunities</h1>
 
-      <Form className="mb-6">
+      <Form className="mb-4">
         <div className="flex gap-2">
           <div className="flex-1">
             <div className="flex items-center">
@@ -147,7 +133,7 @@ export default function Index() {
                 name="term"
                 type="text"
                 placeholder="Search jobs..."
-                defaultValue={activeFilters.term || ""}
+                defaultValue={searchParams.get("term") || ""}
                 className="w-full px-4 py-2 border rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <button
@@ -176,7 +162,8 @@ export default function Index() {
               type="radio"
               value="all"
               defaultChecked={
-                !activeFilters.filter || activeFilters.filter === "all"
+                !searchParams.get("filter") ||
+                searchParams.get("filter") === "all"
               }
             />
             <span className="ml-2">All</span>
@@ -186,48 +173,28 @@ export default function Index() {
               name="filter"
               type="radio"
               value="title"
-              defaultChecked={activeFilters.filter === "title"}
+              defaultChecked={searchParams.get("filter") === "title"}
             />
             <span className="ml-2">By Title</span>
           </label>
-          <label className="inline-flex items-center">
-            <input
-              name="showFavorites"
-              type="checkbox"
-              value="true"
-              defaultChecked={activeFilters.showOnlyFavorites}
-            />
-            <span className="ml-2">Show Favorites Only</span>
-          </label>
         </div>
-
-        {hasActiveFilters && (
-          <div className="mt-2 text-sm">
-            <div className="text-gray-600">
-              Active filters:
-              {activeFilters.term && (
-                <span className="ml-2 bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                  Search: {activeFilters.term}
-                </span>
-              )}
-              {activeFilters.filter === "title" && (
-                <span className="ml-2 bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                  Title only
-                </span>
-              )}
-              {activeFilters.showOnlyFavorites && (
-                <span className="ml-2 bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                  Favorites only
-                </span>
-              )}
-            </div>
-          </div>
-        )}
       </Form>
 
       <div className="mb-4 text-gray-600">
         Found {jobs.length} job{jobs.length !== 1 ? "s" : ""}
         {hasActiveFilters && " matching your filters"}
+      </div>
+
+      <div className="mb-4 flex justify-between items-center">
+        <label className="inline-flex items-center">
+          <input
+            type="checkbox"
+            checked={showOnlyFavorites}
+            onChange={(e) => setShowOnlyFavorites(e.target.checked)}
+            className="form-checkbox h-5 w-5 text-blue-500"
+          />
+          <span className="ml-2">Show Favorites Only ({favorites.length})</span>
+        </label>
       </div>
 
       {favorites.length > 0 && (
@@ -244,7 +211,7 @@ export default function Index() {
       )}
 
       <ul className="space-y-4">
-        {jobs.map((job) => (
+        {displayedJobs.map((job) => (
           <li
             key={job.id}
             className="p-4 border rounded-md shadow-md hover:shadow-lg transition duration-300"
@@ -285,7 +252,7 @@ export default function Index() {
         ))}
       </ul>
 
-      {jobs.length === 0 && (
+      {displayedJobs.length === 0 && (
         <p className="text-gray-500 text-center py-8">
           No jobs found. Try adjusting your search criteria.
         </p>
