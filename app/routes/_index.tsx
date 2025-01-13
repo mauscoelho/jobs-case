@@ -1,20 +1,59 @@
-import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/cloudflare";
+import {
+  json,
+  type LoaderFunctionArgs,
+  type MetaFunction,
+} from "@remix-run/cloudflare";
 import { Form, useLoaderData } from "@remix-run/react";
-import { fetchAndFilterJobs, SearchFilter } from "~/services/jobs-api";
+import { isJobsArray } from "~/helpers";
+import {
+  fetchAllJobs,
+  filterJobs,
+  Job,
+  SearchFilter,
+} from "~/services/jobs-api";
 
 export const meta: MetaFunction = () => {
   return [
-    { title: "New Remix App" },
-    { name: "description", content: "Welcome to Remix!" },
+    { title: "Job search" },
+    { name: "description", content: "Welcome to Job search!" },
   ];
 };
 
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader({ request, context }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const term = url.searchParams.get("term");
   const filter = url.searchParams.get("filter") as SearchFilter;
-  const allJobs = await fetchAndFilterJobs(term, filter);
-  return { jobs: allJobs };
+
+  const env = context.env as { JOBS_CACHE: KVNamespace };
+
+  try {
+    const cachedData = await env.JOBS_CACHE.get("all_jobs", "json");
+    let allJobs: Job[];
+
+    if (cachedData && isJobsArray(cachedData)) {
+      allJobs = cachedData;
+    } else {
+      // If no cache, invalid data, or expired, fetch new data
+      allJobs = await fetchAllJobs();
+      // Cache for 1 hour (60 * 60 seconds)
+      await env.JOBS_CACHE.put("all_jobs", JSON.stringify(allJobs), {
+        expirationTtl: 60 * 60,
+      });
+    }
+
+    const filteredJobs = filterJobs(allJobs, term, filter);
+
+    return json({ jobs: filteredJobs });
+  } catch (error) {
+    console.error("Error loading jobs:", error);
+    return json(
+      {
+        jobs: [],
+        error: "Failed to load jobs. Please try again later.",
+      },
+      { status: 500 }
+    );
+  }
 }
 
 export default function Index() {

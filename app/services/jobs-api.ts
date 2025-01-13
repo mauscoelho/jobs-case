@@ -72,11 +72,3 @@ export function filterJobs(
     }
   });
 }
-
-export async function fetchAndFilterJobs(
-  searchTerm?: string | null,
-  filter: SearchFilter = ""
-): Promise<Job[]> {
-  const allJobs = await fetchAllJobs();
-  return filterJobs(allJobs, searchTerm, filter);
-}

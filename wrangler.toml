@@ -1,0 +1,4 @@
+[[kv_namespaces]]
+binding = "JOBS_CACHE"
+id = "your-kv-namespace-id"
+preview_id = "your-preview-namespace-id"
