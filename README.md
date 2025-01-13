@@ -53,8 +53,14 @@ npm run start
 ### Future Improvements (Given More Time)
 1. Persistent storage for favorites (currently in-memory)
 2. User authentication
-3. Better error handling and feedback
-4. Better UI/UX
+3. Job recommendations feature:
+   - Integrate with `/jobs/recommendations` API endpoint
+   - Show personalized recommendations based on searched job titles
+   - Create an engaging UI to display recommended jobs
+   - Add a "Similar Jobs" section under each job card
+   - Implement a dedicated recommendations page with advanced filtering
+4. Better error handling and feedback
+5. Better UI/UX
 
 ## 🎨 UI Components
 - Responsive search bar with clear functionality
