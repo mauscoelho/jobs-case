@@ -1,5 +1,7 @@
 # Job Search Application - Starred Code Challenge
 
+🌐 **Live Demo**: [starred.pages.dev](https://starred.pages.dev/)
+
 A candidate-centric job search platform built with Remix and Cloudflare, allowing candidates to browse, search, and favorite job opportunities.
 
 ## 🎯 Challenge Requirements Implemented
