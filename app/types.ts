@@ -1,11 +1,7 @@
-export type LoaderData = {
-  jobs: Job[];
-  favorites: number[];
-  activeFilters: {
-    term: string | null;
-    filter: SearchFilter | null;
-    showOnlyFavorites: boolean | null;
-  };
+export type Cache = {
+  data: Job[];
+  favorites: Set<number>;
+  timestamp: number;
 };
 
 export type Pagination = {

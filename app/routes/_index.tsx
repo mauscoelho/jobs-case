@@ -7,8 +7,13 @@ import {
 } from "@remix-run/cloudflare";
 import { Form, useLoaderData, useSearchParams } from "@remix-run/react";
 import { useState } from "react";
-import { fetchAllJobs, filterJobs } from "~/services/jobs-api";
-import { Job, SearchFilter } from "~/types";
+import {
+  clearAllFavorites,
+  filterJobs,
+  getJobsFromCache,
+  toggleJobFavorite,
+} from "~/services/jobs-service";
+import { SearchFilter } from "~/types";
 
 export const meta: MetaFunction = () => {
   return [
@@ -17,86 +22,37 @@ export const meta: MetaFunction = () => {
   ];
 };
 
-type Cache = {
-  data: Job[];
-  favorites: Set<number>;
-  timestamp: number;
-};
-
-declare global {
-  // eslint-disable-next-line no-var
-  var __jobsCache: Cache | undefined;
-}
-
-const CACHE_DURATION = 60 * 60 * 1000; // 1 hour
-
 export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const term = url.searchParams.get("term");
   const filter = url.searchParams.get("filter") as SearchFilter;
 
   try {
-    let cache = globalThis.__jobsCache;
-
-    // Check if cache needs refresh
-    if (!cache || Date.now() - cache.timestamp > CACHE_DURATION) {
-      const allJobs = await fetchAllJobs();
-      cache = {
-        data: allJobs,
-        favorites: new Set(cache?.favorites || []),
-        timestamp: Date.now(),
-      };
-      globalThis.__jobsCache = cache;
-    }
-
-    const filteredJobs = filterJobs(cache.data, term, filter);
-
-    return json({
-      jobs: filteredJobs,
-      favorites: Array.from(cache.favorites),
-    });
+    const { jobs, favorites } = await getJobsFromCache();
+    const filteredJobs = filterJobs(jobs, term, filter);
+    return json({ jobs: filteredJobs, favorites });
   } catch (error) {
     console.error("Error loading jobs:", error);
-    return json(
-      {
-        jobs: [],
-        favorites: [],
-      },
-      { status: 500 }
-    );
+    return json({ jobs: [], favorites: [] }, { status: 500 });
   }
 }
 
 type ActionType = "toggleFavorite" | "clearFavorites";
-
 export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
   const actionType = formData.get("_action") as ActionType;
-
-  if (!globalThis.__jobsCache) {
-    return json({ success: false });
-  }
 
   switch (actionType) {
     case "toggleFavorite": {
       const jobId = Number(formData.get("jobId"));
       if (isNaN(jobId)) return json({ success: false });
 
-      const favorites = globalThis.__jobsCache.favorites;
-      if (favorites.has(jobId)) {
-        favorites.delete(jobId);
-      } else {
-        favorites.add(jobId);
-      }
-
-      return json({
-        success: true,
-        favorites: Array.from(favorites),
-      });
+      const result = toggleJobFavorite(jobId);
+      return json(result);
     }
 
     case "clearFavorites": {
-      globalThis.__jobsCache.favorites.clear();
+      clearAllFavorites();
       return redirect(request.url);
     }
 
