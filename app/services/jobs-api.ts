@@ -1,24 +1,5 @@
 import { API_URL } from "~/env-variables.server";
-
-export type Pagination = {
-  currentPage: number;
-  firstPage: number;
-  lastPage: number;
-};
-
-export type Job = {
-  job_title: string;
-  description: string;
-  company: string;
-  id: number;
-};
-
-export type ApiResponse = {
-  pagination: Pagination;
-  data: Job[];
-};
-
-export type SearchFilter = "all" | "title" | "";
+import { ApiResponse, Job, SearchFilter } from "~/types";
 
 export async function fetchJobs(page: number): Promise<ApiResponse> {
   const response = await fetch(`${API_URL}?page=${page}`);
