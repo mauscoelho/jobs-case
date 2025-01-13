@@ -1,0 +1,45 @@
+import { API_URL } from "~/env-variables.server";
+
+export type Pagination = {
+  currentPage: number;
+  firstPage: number;
+  lastPage: number;
+};
+
+export type Job = {
+  job_title: string;
+  description: string;
+  company: string;
+  id: number;
+};
+
+export type ApiResponse = {
+  pagination: Pagination;
+  data: Job[];
+};
+
+export async function fetchJobs(page: number): Promise<ApiResponse> {
+  const response = await fetch(`${API_URL}?page=${page}`);
+  if (!response.ok) {
+    throw new Error(
+      `API request failed for page ${page} with status: ${response.status}`
+    );
+  }
+  return response.json();
+}
+
+export async function fetchAllJobs(): Promise<Job[]> {
+  const initialData: ApiResponse = await fetchJobs(0);
+  const lastPage = initialData.pagination.lastPage;
+
+  const allJobs = [...initialData.data];
+  let currentPage = 1;
+
+  while (currentPage <= lastPage) {
+    const data = await fetchJobs(currentPage);
+    allJobs.push(...data.data);
+    currentPage++;
+  }
+
+  return allJobs;
+}
